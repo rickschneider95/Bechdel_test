@@ -1,74 +1,215 @@
 ---
-title: "Your Bechdel test"
-author: "Diane BELDAME"
+title: "My Bechdel test"
+author: "Rick SCHNEIDER"
 date: "1 octobre 2018"
 output: html_document
 ---
+https://data.world/sharon/bechdel-test -> new data for bechdel test!!!!!!!
 
+
+# Packages:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+```
+```{r,message=FALSE,warning =FALSE}
+library(tidyverse)
+library(ggplot2)
+library(readr)
 ```
 
 
 # Introduction
 
-This comic strip...
+The goal of this new bechdel test is to measure the gender imbalance in movies.
 
-![](The-Rule-cleaned-up.jpg)
-... has lead to a test called Bechdel test. It aims to address Hollywood’s gender bias and applies to _movies_. It consists in two simple questions:
+The original Bechdel test tests for 3 criterias:
+1)Are there at least 2 women in the movie?
+2)Do they have a conversation together?
+3)Is that conversation about somthing else than a man?
 
-- Does it have at least two named female characters ?
+Fivethirtyeight has created a new Bechdel test.
 
-- And do those characters have at least one conversation that is not about a man?
+Import data from the new Benchdel test:
+```{r,message=FALSE, warning =FALSE}
 
-"Easy ! All movies passes the test !" Well...Unfortunately, not at all. Although "The rule" was written in the mid-80's, a third of the top 50 movies of 2016 failed the Bechdel Test. 
-
-On december 21, 2017 the pure player fivethirtyeight.com publishes an article on the _new_ Bechdel test : https://projects.fivethirtyeight.com/next-bechdel/
-
-The authors "reached out to more than a dozen women in film and television — writers, directors, actresses and producers — to ask what they think the next Bechdel Test should be". The results are quite different considering how they tackle the problem.  
-
-That's what inside the "nextBechdel_allTests.csv" file from the fivethirtyeight github repository : https://github.com/fivethirtyeight/data/tree/master/next-bechdel
-
-You can fetch the data using:
-
-```{r, message=FALSE}
-library(readr)
 new_bechdel <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/next-bechdel/nextBechdel_allTests.csv")
-```
 
-# Expectations
-
-We would like _you_ to build a _new_ Bechdel test too. Build a test that examine the movie and/or behind the camera and tries to "measure" the gender bias. Experiment it on the top 50 movies of 2016. 
-To do so, no holds barred. You can either use the provided data or either add exogeneous data (please provide the sources).
-
-Here are the lines to import the provided data in fivethirtyeight's project:
-```{r, message=FALSE, warning =FALSE}
 cast_gender <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/next-bechdel/nextBechdel_castGender.csv")
 crew_gender <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/next-bechdel/nextBechdel_crewGender.csv")
+
+```
+# Analyis of cast_gender & crew_gender
+
+Lets start by having a look the 2 data sets that we have to create our benchdel test:
+
+cast_gender:
+```{r}
+head(cast_gender)
+dim(cast_gender)
+names(cast_gender)
+summary(cast_gender)
+View(cast_gender)
+```
+cast_gender is a 2075x6 data frame with the variables "MOVIE" (name of the movie), "ACTOR" (name of the casted actor), "CHARACTER_NAME" (name of the character in the movie), "TYPE" (which role did the character play? Was it a leading, supporting,... one?), "BILLING" (billing numer) and "GENDER" (female or male).
+
+Lets have a look at crew_gender:
+```{r}
+head(crew_gender)
+dim(crew_gender)
+names(crew_gender)
+summary(crew_gender)
+View(crew_gender)
+```
+crew_gender is a 10029x7 data frame with the variables "MOVIE", "DEPARTMENT" (in which department did the crew member work?), "FULL_NAME", "FIRST_NAME", "IMDB" (link to the IMDb page of the person in question), "GENDER_PROB" (the probability of the name being female (->0) or male (->1)) and "GENDER_GUESS" (the guess of the gender based on the probability)
+
+
+#My first Benchdel criteria:
+The goal of my personal benchdel test is to test for gender inqueality. Therefore, I am going to introduce a few gender criterias that a movie should fulfill to pass my test. The first criterias that I would like t take into consideration are the following:
+1) Over 30% of the cast should be female
+2) Leading roles should be 40% female
+3) 
+Next the data set is analysed to see if those criteria are reasonable. In a next step, if necessary, we are going to adapt the criteria
+
+#Analysis of the first Benchdel criteria:
+Lets have a look at the feasability of our first criterium, which is: "Over 30% of the cast should be female":
+```{r}
+#create  count table:
+count_gender <- table(cast_gender$GENDER)
+count_gender
+
+#create a pie chart to visualize the count:
+pie <- ggplot(cast_gender, aes(x = "", fill = factor(GENDER))) + 
+  geom_bar(width = 1) +
+  theme(axis.line = element_blank(), 
+        plot.title = element_text(hjust=0.5)) + 
+  labs(fill="GENDER", 
+       x=NULL, 
+       y=NULL, 
+       title="Pie Chart of class", 
+       caption="Source: mpg")
+  
+pie + coord_polar(theta = "y", start=0)
+
+#calculate the percentage ratio:
+count_gender <- data.frame(count_gender)
+perc_female <- count_gender[count_gender$Var1=="Female",2]/(count_gender[count_gender$Var1=="Female",2]+count_gender[count_gender$Var1=="Male",2])
+perc_female*100
+```
+On average over all movies in our database, around 31.74% of the cast is female. As such, our requirement to have at least 30% females in a cast seems to be a feasible requirement without excluding all the movies.
+
+
+Lets have a look at the feasability of our first criterium, which is: "Leading roles should be 40% female":
+
+```{r}
+#filter out leading characters:
+leading_cast <- cast_gender %>%
+                  filter(TYPE == "Leading")
+               
+#geberate a frequency count table:
+leading_gender_count = table(leading_cast$GENDER)
+leading_gender_count
+
+#generate a pie chart with the gender of leading people:
+pie <- ggplot(leading_cast, aes(x = "", fill = factor(GENDER))) + 
+  geom_bar(width = 1) +
+  theme(axis.line = element_blank(), 
+        plot.title = element_text(hjust=0.5)) + 
+  labs(fill="GENDER", 
+       x=NULL, 
+       y=NULL, 
+       title="Pie Chart of class", 
+       caption="Source: mpg")
+  
+pie + coord_polar(theta = "y", start=0)
+
+#calculate the percentage ratio:
+leading_gender_count <- data.frame(leading_gender_count)
+perc_female <- leading_gender_count[leading_gender_count$Var1=="Female",2]/(leading_gender_count[leading_gender_count$Var1=="Female",2]+leading_gender_count[leading_gender_count$Var1=="Male",2])
+perc_female*100
+
 ```
 
-Finely describe the process that lead you to the score. What choices did you made ? Why ? How did you get into the data to confirm or invalidate your hypothesis ?
-
-Please, submit your work in shape of a zipped folder containing an RStudio project to xhec2018@thinkr.fr
-Deadline : 4th november, 11:00 PM
-The name of the project should be "bechdel_firstname_lastname".
-The project must contain a `.Rmd` file and the corresponding rendered `.html` file. 
-Packages should be loaded at the top of the `.Rmd` file. 
-Exogenous data must be included if you use some (provide the file or provide the instructions to build them)
-The whole thing should be _reproducible_.
 
 
 
-# Scoring grid
+# My Benchdel test:
 
-```{r, echo = FALSE}
-library(readxl)
-library(magrittr)
-read_excel("score_grid.xlsx", sheet = 2) %>% knitr::kable()
+Generate a dataframe with all the movies and test the different criteria.
+```{r}
+#As we need to count the gender for a few criteria, we create a function to have a reproductible code. In R, functions cannot return multiple values, so we need to create 2 seperate functions:
+#count females function:
+f_count_fem <- function(df){
+  num_fem <- df %>% 
+                  filter(GENDER == "Female") %>% 
+                  group_by(MOVIE) %>% 
+                  summarise(count_fem_cast = n())
+  return(num_fem)}
+
+#count males function:
+f_count_male <- function(df){
+  num_male <- df %>% 
+                  filter(GENDER == "Male") %>% 
+                  group_by(MOVIE) %>% 
+                  summarise(count_male_cast = n()) 
+  return(num_male)}
+
+num_fem <- f_count_fem(cast_gender)
+num_male <- f_count_male(cast_gender)
+
+#Join the count per movie data frames and calculate the ratio:
+my_bechdel <- inner_join(num_fem,num_male,by="MOVIE")
+my_bechdel <- my_bechdel %>% 
+                mutate(crit1_test = count_fem_cast/(count_fem_cast+count_male_cast),
+                       crit1 = case_when(       
+                          crit1_test > 0.3  ~ 1, crit1_test <= 0.3 ~ 0))      
+table(my_bechdel$crit1) 
+View(my_bechdel)
+
 ```
 
-**update 2018-10-15:** in the scoregrid, "exploration" means "show some of the wandering you made to build a new test". Let say you want to explore "A film fails if lesser than 40% of the cast and lesser than 40% of the crew are women". To do so, you're going to calculate how many films pass the test, and why. Therefore, maybe you're going to look which films are concerned, maybe you're going to test 45% instead of 40%. Maybe proportion is not relevant and has side effect so you're going to adapt your test in something like "A film fails if lesser than 40% (or at least 5 characters if the cast counts lesser than 30 people) of the cast and lesser than 40% of the crew are women". 
-We saw that data visualisation works hand in hand with data description, that's why you should show "at least 2 graphs as a result of these explorations"
+criteria 2:
+
+```{r}
+#use functions to count males and females having a leading role:
+num_fem <- f_count_fem(leading_cast)
+num_male <- f_count_male(leading_cast)
+View(num_fem)
+
+my_bechdel2 <- leading_cast %>% 
+                  select(MOVIE) %>%  
+                  distinct(MOVIE) %>% 
+                  mutate(count_fem_lead = 0,
+                         count_male_lead= 0)
+
+not_in_fem <- my_bechdel2 %>% 
+                  filter(MOVIE %in% num_fem[,1])
+View(not_in_fem)
+  
+  my_bechdel2[!"MOVIE" %in% num_fem[,1]]
+View(not_in_fem)
+
+##### how can I do this???  
+View(my_bechdel2)
+test <- my_bechdel2[,1] %in% num_fem[,1]
+test
+
+
+my_bechdel[,count_fem_lead]= num_fem[,2]                 
+                  
+my_bechdel2 <- my_bechdel2 %>% 
+                  
+my_bechdel2["MOVIE"==num_fem[,1],2]# = num_fem[,2]
+            
+View(my_bechdel2)
+```
+
+
+testing:
+```{r}
+unique(crew_gender$DEPARTMENT)
+```
+
+
 
 # Ressources
 
