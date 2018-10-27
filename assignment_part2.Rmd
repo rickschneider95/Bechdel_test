@@ -44,13 +44,21 @@ Lets start by having a look the 2 data sets that we have to create our benchdel 
 
 cast_gender:
 ```{r}
+View(new_bechdel)
+
 head(cast_gender)
 dim(cast_gender)
 names(cast_gender)
 summary(cast_gender)
 View(cast_gender)
+
+#How many different movies are in the df?
+cast_gender %>% 
+  distinct(MOVIE) %>% 
+  summarise(count_movies_cast=n())
 ```
 cast_gender is a 2075x6 data frame with the variables "MOVIE" (name of the movie), "ACTOR" (name of the casted actor), "CHARACTER_NAME" (name of the character in the movie), "TYPE" (which role did the character play? Was it a leading, supporting,... one?), "BILLING" (billing numer) and "GENDER" (female or male).
+The data frame contains information about 50 different movies.
 
 Lets have a look at crew_gender:
 ```{r}
@@ -59,15 +67,22 @@ dim(crew_gender)
 names(crew_gender)
 summary(crew_gender)
 View(crew_gender)
+
+#How many different movies are in the df?
+crew_gender %>% 
+  distinct(MOVIE) %>% 
+  summarise(count_movies_crew=n())
 ```
-crew_gender is a 10029x7 data frame with the variables "MOVIE", "DEPARTMENT" (in which department did the crew member work?), "FULL_NAME", "FIRST_NAME", "IMDB" (link to the IMDb page of the person in question), "GENDER_PROB" (the probability of the name being female (->0) or male (->1)) and "GENDER_GUESS" (the guess of the gender based on the probability)
+crew_gender is a 10029x7 data frame with the variables "MOVIE", "DEPARTMENT" (in which department did the crew member work?), "FULL_NAME", "FIRST_NAME", "IMDB" (link to the IMDb page of the person in question), "GENDER_PROB" (the probability of the name being female (->0) or male (->1)) and "GENDER_GUESS" (the guess of the gender based on the probability).
+crew_gender contais information about 19 different movies. All movie names have the supplement of "(2016)" in their name which can be removed.
+
 
 
 #My first Benchdel criteria:
 The goal of my personal benchdel test is to test for gender inqueality. Therefore, I am going to introduce a few gender criterias that a movie should fulfill to pass my test. The first criterias that I would like t take into consideration are the following:
 1) Over 30% of the cast should be female
 2) Leading roles should be 40% female
-3) 
+
 Next the data set is analysed to see if those criteria are reasonable. In a next step, if necessary, we are going to adapt the criteria
 
 #Analysis of the first Benchdel criteria:
@@ -104,10 +119,11 @@ Lets have a look at the feasability of our first criterium, which is: "Leading r
 #filter out leading characters:
 leading_cast <- cast_gender %>%
                   filter(TYPE == "Leading")
-               
+
 #geberate a frequency count table:
 leading_gender_count = table(leading_cast$GENDER)
 leading_gender_count
+
 
 #generate a pie chart with the gender of leading people:
 pie <- ggplot(leading_cast, aes(x = "", fill = factor(GENDER))) + 
@@ -132,7 +148,7 @@ perc_female*100
 
 
 
-# My Benchdel test:
+# My first Benchdel test:
 
 Generate a dataframe with all the movies and test the different criteria.
 ```{r}
@@ -166,6 +182,8 @@ table(my_bechdel$crit1)
 View(my_bechdel)
 
 ```
+We see that 31 out of the 50 movies pass this criterium
+
 
 criteria 2:
 
@@ -173,42 +191,62 @@ criteria 2:
 #use functions to count males and females having a leading role:
 num_fem <- f_count_fem(leading_cast)
 num_male <- f_count_male(leading_cast)
-View(num_fem)
+#View(num_fem)
 
+#Reminder: leading_cast -> information about the leading actors for every movie
+#select a list of distinct movies where we have information about a leading actor
 my_bechdel2 <- leading_cast %>% 
                   select(MOVIE) %>%  
-                  distinct(MOVIE) %>% 
-                  mutate(count_fem_lead = 0,
-                         count_male_lead= 0)
+                   distinct(MOVIE)
 
-not_in_fem <- my_bechdel2 %>% 
-                  filter(MOVIE %in% num_fem[,1])
-View(not_in_fem)
-  
-  my_bechdel2[!"MOVIE" %in% num_fem[,1]]
-View(not_in_fem)
+#add the female count column:
+my_bechdel2 <- right_join(num_fem,my_bechdel2,by="MOVIE")
+my_bechdel2[is.na(my_bechdel2[,2]),2]=0
+#add a male count column:
+my_bechdel2 <- right_join(num_male,my_bechdel2,by="MOVIE")
+my_bechdel2[is.na(my_bechdel2[,2]),2]=0
 
-##### how can I do this???  
-View(my_bechdel2)
-test <- my_bechdel2[,1] %in% num_fem[,1]
-test
-
-
-my_bechdel[,count_fem_lead]= num_fem[,2]                 
-                  
-my_bechdel2 <- my_bechdel2 %>% 
-                  
-my_bechdel2["MOVIE"==num_fem[,1],2]# = num_fem[,2]
+#calculate the ratio:
+my_bechdel2 <-  my_bechdel2 %>% 
+                    mutate(crit2_test = count_fem_cast/(count_male_cast+count_fem_cast))
+#final crit2 (1: passed criterium, 0: not passed)
+my_bechdel2 <-  my_bechdel2 %>%
+                    mutate(crit1_test = count_fem_cast/(count_fem_cast+count_male_cast),
+                       crit2 = case_when(       
+                          crit2_test > 0.4  ~ 1, crit2_test <= 0.4 ~ 0)) 
+table(my_bechdel2$crit2)
+#16 out of 31 movies pass this part of the test (+/- 50%)
             
 View(my_bechdel2)
 ```
+After implementing the 2 first criteria, we can see that there is a problem for the availability of the data. This means that if we filter for different categories, there might not be data on every movie. This can be seen in the following plot: PLOTPLOTPLOT. 
+We need a solution for this. There are 3 possible scenarios:
+1)We do our final test only on the movies where we have all information for our chosen tests
+2)we change our criteria in order to test for all the movies
+3)we come up with a formula that allows to take missing data into account for the total test (e.g. a movie is eligible for the test if there is enough data on 4 out of the 5 criteria,if 5 --> pass 3 tests and be very close to pass the 4th (we need to introduce a closeness measure!); if 4 --> pass 3 tests )
 
+#Additional data
 
-testing:
-```{r}
-unique(crew_gender$DEPARTMENT)
+This data set contains the revenues
+```{r,message=FALSE, warning =FALSE}
+revenue <- read_csv("data/Bechdel-master_revenue.csv")
+
+#delete the index column and prepare table for join operation:
+revenue <- revenue %>% 
+              select(-1) %>% 
+              rename(MOVIE=Movie)
+View(revenue)
+
+#join the data with a list of movies that we are going to test:
+movie_list <- cast_gender %>% 
+                  select(MOVIE) %>% 
+                  distinct()
+#View(movie_list)
+revenue <- inner_join(movie_list,revenue,by="MOVIE")
+View(revenue)
+
 ```
-
+Problems: many NAs, not very useful data. Very difficult to join the table based on the name of the movies...
 
 
 # Ressources
