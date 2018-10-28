@@ -218,12 +218,31 @@ table(my_bechdel2$crit2)
 #16 out of 31 movies pass this part of the test (+/- 50%)
             
 View(my_bechdel2)
+
 ```
+
+Putting the criteria together:
+```{r}
+rick_test <- my_bechdel
+rick_test <- rick_test %>% 
+                left_join(my_bechdel2,by="MOVIE") %>% 
+                select(MOVIE,crit1,crit2)
+
+sum(is.na(rick_test$crit2))
+
+View(rick_test)
+```
+
 After implementing the 2 first criteria, we can see that there is a problem for the availability of the data. This means that if we filter for different categories, there might not be data on every movie. This can be seen in the following plot: PLOTPLOTPLOT. 
 We need a solution for this. There are 3 possible scenarios:
 1)We do our final test only on the movies where we have all information for our chosen tests
 2)we change our criteria in order to test for all the movies
 3)we come up with a formula that allows to take missing data into account for the total test (e.g. a movie is eligible for the test if there is enough data on 4 out of the 5 criteria,if 5 --> pass 3 tests and be very close to pass the 4th (we need to introduce a closeness measure!); if 4 --> pass 3 tests )
+
+
+
+new test idea--> pass the test if at least 2 female stuntman in a movie
+
 
 #Additional data
 
