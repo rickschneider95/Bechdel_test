@@ -32,7 +32,7 @@ Fivethirtyeight has created a new Bechdel test.
 Import data from the new Benchdel test:
 ```{r,message=FALSE, warning =FALSE}
 
-new_bechdel <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/next-bechdel/nextBechdel_allTests.csv")
+#new_bechdel <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/next-bechdel/nextBechdel_allTests.csv")
 
 cast_gender <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/next-bechdel/nextBechdel_castGender.csv")
 crew_gender <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/next-bechdel/nextBechdel_crewGender.csv")
@@ -44,13 +44,13 @@ Lets start by having a look the 2 data sets that we have to create our benchdel 
 
 cast_gender:
 ```{r}
-View(new_bechdel)
+#View(new_bechdel)
 
 head(cast_gender)
 dim(cast_gender)
 names(cast_gender)
 summary(cast_gender)
-View(cast_gender)
+#View(cast_gender)
 
 #How many different movies are in the df?
 cast_gender %>% 
@@ -66,7 +66,7 @@ head(crew_gender)
 dim(crew_gender)
 names(crew_gender)
 summary(crew_gender)
-View(crew_gender)
+#View(crew_gender)
 
 #How many different movies are in the df?
 crew_gender %>% 
@@ -179,7 +179,7 @@ my_bechdel <- my_bechdel %>%
                        crit1 = case_when(       
                           crit1_test > 0.3  ~ 1, crit1_test <= 0.3 ~ 0))      
 table(my_bechdel$crit1) 
-View(my_bechdel)
+#View(my_bechdel)
 
 ```
 We see that 31 out of the 50 movies pass this criterium
@@ -217,7 +217,7 @@ my_bechdel2 <-  my_bechdel2 %>%
 table(my_bechdel2$crit2)
 #16 out of 31 movies pass this part of the test (+/- 50%)
             
-View(my_bechdel2)
+#View(my_bechdel2)
 
 ```
 
@@ -245,7 +245,7 @@ We are going to look at the different roles of the of the cast and we are going 
 
 ```{r}
 #this variable stores the amount of data we have in the type column with respect to different movies
-tyes_count <- cast_gender %>% 
+types_count <- cast_gender %>% 
                   select(MOVIE,TYPE) %>% 
                   group_by(TYPE) %>%
                   distinct(MOVIE) %>% 
@@ -274,19 +274,95 @@ We are going to decide in a later step if we are going to reject criterium 2), o
 Lets have a look at the feasability of our third criterium, which is: "The supporting actors should be 50% female":
 ```{r}
 
+supp_gender <- cast_gender %>% 
+                  filter(TYPE == "Supporting")
+
+#create a pie chart to visualize the count:
+pie <- ggplot(supp_gender, aes(x = "", fill = factor(GENDER))) + 
+  geom_bar(width = 1) +
+  theme(axis.line = element_blank(), 
+        plot.title = element_text(hjust=0.5)) + 
+  labs(fill="GENDER", 
+       x=NULL, 
+       y=NULL, 
+       title="Pie Chart of class", 
+       caption="Source: mpg")
+  
+pie + coord_polar(theta = "y", start=0)
+```
+Looking at this pie chart, we can immediatly see that the 50% threshold for women in supporting roles is way too high. It will exclude too many movies and thereby make our test too strong (especially because we have more criteria to fulfill). As such, it seems reasonable to lower this threshold to 30%. Here are our revised criteria:
+
+1) Over 30% of the cast should be female
+2) Leading roles should be 40% female
+3) The supporting actors should be 30% female
+
+Criterium 3:
+```{r}
+#use functions to count males and females having a supporting role:
+num_fem <- f_count_fem(supp_gender)
+num_male <- f_count_male(supp_gender)
+#View(num_fem)
+
+#select a list of distinct movies where we have information about a supporting actor
+my_bechdel3 <- supp_gender %>% 
+                  select(MOVIE) %>%  
+                   distinct(MOVIE)
+View(my_bechdel3)
+#add the female count column:
+my_bechdel3 <- right_join(num_fem,my_bechdel3,by="MOVIE")
+my_bechdel3[is.na(my_bechdel2[,2]),2]=0
+#add a male count column:
+my_bechdel3 <- right_join(num_male,my_bechdel3,by="MOVIE")
+my_bechdel3[is.na(my_bechdel2[,2]),2]=0
+
+#calculate the ratio:
+my_bechdel3 <-  my_bechdel3 %>% 
+                    mutate(crit3_test = count_fem_cast/(count_male_cast+count_fem_cast))
+#final crit2 (1: passed criterium, 0: not passed, -1 if NA as we do not have enough data)
+my_bechdel3 <-  my_bechdel3 %>%
+                    mutate(crit1_test = count_fem_cast/(count_fem_cast+count_male_cast),
+                       crit3 = case_when(       
+                          crit3_test > 0.4  ~ 1, 
+                          crit3_test <= 0.4 ~ 0,
+                          is.na(crit3_test) == TRUE ~ -1)) 
+table(my_bechdel3$crit3)
+```
+13 movies pass the test, 36 do not pass it and for 1 movie, we do not have data on the gender of the of the supporting cast.
+
+Putting the criteria together:
+```{r}
+#join to generate new df with 3 criteria:
+rick_test <- rick_test %>% 
+                left_join(my_bechdel3,by="MOVIE") %>% 
+                select(MOVIE,crit1,crit2,crit3)
+
+#rick_test <- rick_test %>% 
+#                mutate(result = crit1+crit2+crit3) %>% 
+#                filter(result == 2)
+#View(rick_test)
 ```
 
-
-
+#COnsideration of further criteria and solution for incomplete data
+As already pointed above, the dataframe crew_gender contains only information on 19 different movies. In addition, our 3 criteria already exclude a few movies due to insufficient data.
 
 We need a solution for this. There are 3 possible scenarios:
-1)We do our final test only on the movies where we have all information for our chosen tests
-2)we change our criteria in order to test for all the movies
-3)we come up with a formula that allows to take missing data into account for the total test (e.g. a movie is eligible for the test if there is enough data on 4 out of the 5 criteria,if 5 --> pass 3 tests and be very close to pass the 4th (we need to introduce a closeness measure!); if 4 --> pass 3 tests )
+
+a)We do our final test only on the movies where we have all information for our chosen tests
+b)we change our criteria in order to test for all the movies
+c)we come up with a formula that allows to take missing data into account for the total test
+
+While a) is a convenient solution, it strongly limits our test, that can only be applied on a few movies. In b), we are missing out on highly informative criteria. A solution for c) could look as follows: A movie is eligible for the test if there is enough data on 4 out of the 5 criteria (for example),if 5 --> pass 3 tests and be very close to pass the 4th (we need to introduce a closeness measure!); if 4 --> pass 3 tests )
 
 
 
 new test idea--> pass the test if at least 2 female stuntman in a movie
+
+
+
+Finally, we can introduce a very strong criterium, that allows a movie to pass the test immediatly. If the movie does not pass th criterium, it will no longer be taken into consideration for the evaluation of the others. Lets have a look at the crew_gender dataset:
+```{r}
+
+```
 
 
 #Additional data
