@@ -150,7 +150,7 @@ perc_female*100
 
 # My first Benchdel test:
 
-Generate a dataframe with all the movies and test the different criteria.
+Criterium 1:
 ```{r}
 #As we need to count the gender for a few criteria, we create a function to have a reproductible code. In R, functions cannot return multiple values, so we need to create 2 seperate functions:
 #count females function:
@@ -185,7 +185,7 @@ View(my_bechdel)
 We see that 31 out of the 50 movies pass this criterium
 
 
-criteria 2:
+criterium 2:
 
 ```{r}
 #use functions to count males and females having a leading role:
@@ -228,12 +228,57 @@ rick_test <- rick_test %>%
                 left_join(my_bechdel2,by="MOVIE") %>% 
                 select(MOVIE,crit1,crit2)
 
-sum(is.na(rick_test$crit2))
+#if there is no data available, put a -1
+rick_test[is.na(rick_test$crit2),"crit2"]=-1
 
-View(rick_test)
+#how many crit2 are equal to -1?
+rick_test %>% 
+  filter(crit2 == -1) %>% 
+  summarise(count_minus1 = n())
+#View(rick_test)
+```
+#First evaluation:
+
+After implementing the 2 first criteria, we can see that there is a problem for the availability of the data. This means that if we filter for different categories, there might not be data on every movie. For crit2 e.g., there are 19 movies that cannot be tested because of missing data. This can be seen in the following plot: PLOTPLOTPLOT.
+
+We are going to look at the different roles of the of the cast and we are going to check how much data is actually available for the different categories.
+
+```{r}
+#this variable stores the amount of data we have in the type column with respect to different movies
+tyes_count <- cast_gender %>% 
+                  select(MOVIE,TYPE) %>% 
+                  group_by(TYPE) %>%
+                  distinct(MOVIE) %>% 
+                  summarize(count_movies=n()) 
+
+#barplot of our resulting count table:
+ggplot(types_count, aes(x=TYPE, y=count_movies)) + 
+  geom_bar(stat="identity", width=.5, fill="tomato3") + 
+  labs(title="Ordered Bar Chart", 
+       subtitle="Make Vs Avg. Mileage", 
+       caption="source: mpg") + 
+  theme(axis.text.x = element_text(angle=65, vjust=0.6))
+
+
+```
+We can see that the type "leading" provides data on actors with main roles for 31 movies. Only the type "supporting" provides data on every movie. As a result, we should create a criteria based on the proportion of female people with supporting roles in the movies.
+
+We are going to extend the test as follows:
+1) Over 30% of the cast should be female
+2) Leading roles should be 40% female
+3) The supporting actors should be 50% female
+
+
+We are going to decide in a later step if we are going to reject criterium 2), or if we are going to find a more flexible soluion for this problem.
+
+Lets have a look at the feasability of our third criterium, which is: "The supporting actors should be 50% female":
+```{r}
+
 ```
 
-After implementing the 2 first criteria, we can see that there is a problem for the availability of the data. This means that if we filter for different categories, there might not be data on every movie. This can be seen in the following plot: PLOTPLOTPLOT. 
+
+
+
 We need a solution for this. There are 3 possible scenarios:
 1)We do our final test only on the movies where we have all information for our chosen tests
 2)we change our criteria in order to test for all the movies
@@ -248,21 +293,21 @@ new test idea--> pass the test if at least 2 female stuntman in a movie
 
 This data set contains the revenues
 ```{r,message=FALSE, warning =FALSE}
-revenue <- read_csv("data/Bechdel-master_revenue.csv")
+#revenue <- read_csv("data/Bechdel-master_revenue.csv")
 
 #delete the index column and prepare table for join operation:
-revenue <- revenue %>% 
-              select(-1) %>% 
-              rename(MOVIE=Movie)
-View(revenue)
+#revenue <- revenue %>% 
+#              select(-1) %>% 
+#              rename(MOVIE=Movie)
+#View(revenue)
 
 #join the data with a list of movies that we are going to test:
-movie_list <- cast_gender %>% 
-                  select(MOVIE) %>% 
-                  distinct()
+#movie_list <- cast_gender %>% 
+#                  select(MOVIE) %>% 
+#                  distinct()
 #View(movie_list)
-revenue <- inner_join(movie_list,revenue,by="MOVIE")
-View(revenue)
+#revenue <- inner_join(movie_list,revenue,by="MOVIE")
+#View(revenue)
 
 ```
 Problems: many NAs, not very useful data. Very difficult to join the table based on the name of the movies...
