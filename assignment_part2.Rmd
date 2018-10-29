@@ -15,6 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(ggplot2)
 library(readr)
+library(stringr)
 ```
 
 
@@ -273,7 +274,6 @@ We are going to decide in a later step if we are going to reject criterium 2), o
 
 Lets have a look at the feasability of our third criterium, which is: "The supporting actors should be 50% female":
 ```{r}
-
 supp_gender <- cast_gender %>% 
                   filter(TYPE == "Supporting")
 
@@ -307,7 +307,7 @@ num_male <- f_count_male(supp_gender)
 my_bechdel3 <- supp_gender %>% 
                   select(MOVIE) %>%  
                    distinct(MOVIE)
-View(my_bechdel3)
+#View(my_bechdel3)
 #add the female count column:
 my_bechdel3 <- right_join(num_fem,my_bechdel3,by="MOVIE")
 my_bechdel3[is.na(my_bechdel2[,2]),2]=0
@@ -359,10 +359,120 @@ new test idea--> pass the test if at least 2 female stuntman in a movie
 
 
 
-Finally, we can introduce a very strong criterium, that allows a movie to pass the test immediatly. If the movie does not pass th criterium, it will no longer be taken into consideration for the evaluation of the others. Lets have a look at the crew_gender dataset:
+Finally, we can introduce a very strong criterium, that allows a movie to pass the test immediatly. If the movie does not pass th criterium, it will no longer be taken into consideration for the evaluation of the others. Lets have a look at the crew_gender dataset, to be more precise, at the different departments:
 ```{r}
+#store the different departments:
+dep <- crew_gender %>% 
+          select(DEPARTMENT) %>% 
+          distinct()
+View(dep)
 
 ```
+Out of those 29 departments, 2 seem to be particularly interesting: Stunts and Makeup department. This is because stunts are very often performed by men (even for female actors), while people working in the makeup department are often female. As we want to check for gender imbalance, we do not only look at imbalance when it comes to women, but also men.
+The crew of a movie can be considered as gender neutral, when there is 1 female stuntman and 1 male makeup artist. This is why our 5 criteria look as follows:
+
+1) Over 30% of the cast should be female
+2) Leading roles should be 40% female
+3) The supporting actors should be 30% female
+4)
+5) A movie is considered gender neutral if there is 1 female stuntman and 1 male makeup artist 
+
+Lets have a look at the feasability of our fifth criterium:
+```{r}
+#first, modify the crew_gender data set to make it suitable for our analysis.
+#change the name from GENDER_GUESS to GENDER:
+crew_gender <- crew_gender %>% rename(GENDER = GENDER_GUESS)
+#delete the "-(2016)" that is added to every movie, so that we can perfom a join operator
+crew_gender <- crew_gender %>% mutate(MOVIE = str_sub(MOVIE,1,str_length(MOVIE)-7))
+
+#crew that does stunts
+stunt <- crew_gender %>% 
+            filter(DEPARTMENT == "Stunts_")
+
+#create a pie chart to visualize the count:
+pie <- ggplot(stunt, aes(x = "", fill = factor(GENDER))) + 
+  geom_bar(width = 1) +
+  theme(axis.line = element_blank(), 
+        plot.title = element_text(hjust=0.5)) + 
+  labs(fill="GENDER", 
+       x=NULL, 
+       y=NULL, 
+       title="Pie Chart of class", 
+       caption="Source: mpg")
+pie + coord_polar(theta = "y", start=0)  
+  
+#crew that does make-up:
+makeup <- crew_gender %>% 
+            filter(DEPARTMENT == "Makeup Department_")
+
+#create a pie chart to visualize the count:
+pie2 <- ggplot(makeup, aes(x = "", fill = factor(GENDER))) + 
+  geom_bar(width = 1) +
+  theme(axis.line = element_blank(), 
+        plot.title = element_text(hjust=0.5)) + 
+  labs(fill="GENDER", 
+       x=NULL, 
+       y=NULL, 
+       title="Pie Chart of class", 
+       caption="Source: mpg")
+pie2 + coord_polar(theta = "y", start=0)  
+```
+There is a higher proportion of male makeup artists than female stuntman.
+
+criterium 5:
+```{r}
+#count females function:
+f_count_fem_crew <- function(df){
+  num_fem <- df %>% 
+                  filter(GENDER == "female") %>% 
+                  group_by(MOVIE) %>% 
+                  summarise(count_fem_cast = n())
+  return(num_fem)}
+
+#count males function:
+f_count_male_crew <- function(df){
+  num_male <- df %>% 
+                  filter(GENDER == "male") %>% 
+                  group_by(MOVIE) %>% 
+                  summarise(count_male_cast = n()) 
+  return(num_male)}
+
+#number of female stunman:
+num_fem_stunt <- f_count_fem_crew(stunt)
+  
+#number of male makeup artists:
+num_male_makeup <- f_count_male_crew(makeup)
+
+#initialize as list of all movies:
+my_bechdel5 <- cast_gender %>% 
+                  select(MOVIE) %>% 
+                  distinct()
+View(my_bechdel5)
+
+#add female stuntman count column:
+my_bechdel5 <- right_join(num_fem_stunt,my_bechdel5,by="MOVIE")
+#replace NAs by 0
+my_bechdel5[is.na(my_bechdel5[,2]),2]=0
+
+#add male makeup artists:
+my_bechdel5 <- right_join(num_male_makeup,my_bechdel5,by="MOVIE")
+#replace NAs by 0
+my_bechdel5[is.na(my_bechdel5[,2]),2]=0
+
+#create the crit5 column: if not 0 in both columns for 1 movie --> pass test
+my_bechdel5 <-  my_bechdel5 %>%
+                    mutate(
+                       crit5 = case_when(       
+                          count_male_cast != 0 & count_fem_cast != 0 ~ 1, 
+                          count_male_cast == 0 | count_fem_cast == 0 ~ 0,
+                          ) )
+table(my_bechdel5$crit5)
+
+
+
+
+```
+
 
 
 #Additional data
